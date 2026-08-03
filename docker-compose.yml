@@ -53,11 +53,14 @@ services:
         condition: service_healthy
     networks:
       - ema_network
+      - proxy_network
 
 networks:
   ema_network:
     name: ema_network
     driver: bridge
+  proxy_network:
+    external: true
 
 volumes:
   pgdata:
