@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Settings, LogOut, Menu, Bell, Building2, Plus, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Menu, Bell, Building2, Plus, UserPlus } from 'lucide-react';
 
 export default function Dashboard() {
   return (
