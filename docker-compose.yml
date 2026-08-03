@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16
     container_name: ema-postgres
     restart: always
     environment:
@@ -10,9 +10,40 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: ema
     ports:
+      # Expuesto solo para acceso local si es necesario, pero el backend lo verá en db:5432
       - '54320:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ema-backend
+    restart: always
+    environment:
+      # Prisma se conectará a la BD usando el nombre del contenedor "db" en la red de docker
+      DATABASE_URL: postgresql://postgres:password@db:5432/ema?schema=public
+      PORT: 4000
+    ports:
+      - '4000:4000'
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # El frontend compila la URL de la API de manera estática. En el VPS, configúralo con tu IP pública o dominio.
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
+    container_name: ema-frontend
+    restart: always
+    ports:
+      # El frontend expone Nginx en el puerto 80 del VPS
+      - '80:80'
+    depends_on:
+      - backend
 
 volumes:
   pgdata:
