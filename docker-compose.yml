@@ -1,49 +1,63 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16
-    container_name: ema-postgres
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: ema
-    ports:
-      # Expuesto solo para acceso local si es necesario, pero el backend lo verá en db:5432
-      - '54320:5432'
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-ema}
+    expose:
+      - '5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - ema_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ema}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: ema-backend
     restart: always
     environment:
-      # Prisma se conectará a la BD usando el nombre del contenedor "db" en la red de docker
-      DATABASE_URL: postgresql://postgres:password@db:5432/ema?schema=public
-      PORT: 4000
-    ports:
-      - '4000:4000'
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:password@db:5432/ema?schema=public}
+      PORT: ${PORT:-4000}
+    expose:
+      - '4000'
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - ema_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # El frontend compila la URL de la API de manera estática. En el VPS, configúralo con tu IP pública o dominio.
         - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
-    container_name: ema-frontend
     restart: always
-    ports:
-      # El frontend expone Nginx en el puerto 80 del VPS
-      - '80:80'
+    expose:
+      - '80'
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    networks:
+      - ema_network
+
+networks:
+  ema_network:
+    name: ema_network
+    driver: bridge
 
 volumes:
   pgdata:
